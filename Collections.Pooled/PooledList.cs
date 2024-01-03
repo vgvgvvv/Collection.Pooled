@@ -41,7 +41,7 @@ namespace Collections.Pooled
         private const int s_defaultCapacity = 16;
 
         [NonSerialized]
-        private ArrayPool<T> _pool;
+        private IArrayPoolSource<T> _source;
 #pragma warning disable IDE0044
         [NonSerialized]
         private object? _syncRoot;
@@ -77,6 +77,14 @@ namespace Collections.Pooled
         /// as required.
         /// </summary>
         public PooledList(ArrayPool<T> customPool) : this(ClearMode.Auto, customPool) { }
+        
+        /// <summary>
+        /// Constructs a PooledList. The list is initially empty and has a capacity
+        /// of zero. Upon adding the first element to the list the capacity is
+        /// increased to DefaultCapacity, and then increased in multiples of two
+        /// as required.
+        /// </summary>
+        public PooledList(IArrayPoolSource<T> customPool) : this(ClearMode.Auto, customPool) { }
 
         /// <summary>
         /// Constructs a PooledList. The list is initially empty and has a capacity
@@ -87,7 +95,20 @@ namespace Collections.Pooled
         public PooledList(ClearMode clearMode, ArrayPool<T> customPool)
         {
             _items = Array.Empty<T>();
-            _pool = customPool ?? ArrayPool<T>.Shared;
+            _source = DefaultArrayPoolSource<T>.Create(customPool);
+            _clearOnFree = ShouldClear<T>(clearMode);
+        }
+        
+        /// <summary>
+        /// Constructs a PooledList. The list is initially empty and has a capacity
+        /// of zero. Upon adding the first element to the list the capacity is
+        /// increased to DefaultCapacity, and then increased in multiples of two
+        /// as required.
+        /// </summary>
+        public PooledList(ClearMode clearMode, IArrayPoolSource<T> customPool)
+        {
+            _items = Array.Empty<T>();
+            _source = customPool;
             _clearOnFree = ShouldClear<T>(clearMode);
         }
 
@@ -118,13 +139,20 @@ namespace Collections.Pooled
         /// before any reallocations are required.
         /// </summary>
         public PooledList(int capacity, ClearMode clearMode, bool sizeToCapacity) : this(capacity, clearMode, ArrayPool<T>.Shared, sizeToCapacity) { }
-
+        
         /// <summary>
         /// Constructs a List with a given initial capacity. The list is
         /// initially empty, but will have room for the given number of elements
         /// before any reallocations are required.
         /// </summary>
         public PooledList(int capacity, ArrayPool<T> customPool) : this(capacity, ClearMode.Auto, customPool) { }
+        
+        /// <summary>
+        /// Constructs a List with a given initial capacity. The list is
+        /// initially empty, but will have room for the given number of elements
+        /// before any reallocations are required.
+        /// </summary>
+        public PooledList(int capacity, IArrayPoolSource<T> customPool) : this(capacity, ClearMode.Auto, customPool) { }
 
         /// <summary>
         /// Constructs a List with a given initial capacity. The list is
@@ -132,6 +160,14 @@ namespace Collections.Pooled
         /// before any reallocations are required.
         /// </summary>
         public PooledList(int capacity, ArrayPool<T> customPool, bool sizeToCapacity) : this(capacity, ClearMode.Auto, customPool, sizeToCapacity) { }
+        
+        
+        /// <summary>
+        /// Constructs a List with a given initial capacity. The list is
+        /// initially empty, but will have room for the given number of elements
+        /// before any reallocations are required.
+        /// </summary>
+        public PooledList(int capacity, IArrayPoolSource<T> customPool, bool sizeToCapacity) : this(capacity, ClearMode.Auto, customPool, sizeToCapacity) { }
 
         /// <summary>
         /// Constructs a List with a given initial capacity. The list is
@@ -139,6 +175,13 @@ namespace Collections.Pooled
         /// before any reallocations are required.
         /// </summary>
         public PooledList(int capacity, ClearMode clearMode, ArrayPool<T> customPool) : this(capacity, clearMode, customPool, false) { }
+        
+        /// <summary>
+        /// Constructs a List with a given initial capacity. The list is
+        /// initially empty, but will have room for the given number of elements
+        /// before any reallocations are required.
+        /// </summary>
+        public PooledList(int capacity, ClearMode clearMode, IArrayPoolSource<T> customPool) : this(capacity, clearMode, customPool, false) { }
 
         /// <summary>
         /// Constructs a List with a given initial capacity. The list is
@@ -154,7 +197,7 @@ namespace Collections.Pooled
             if (capacity < 0)
                 ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.capacity, ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
 
-            _pool = customPool ?? ArrayPool<T>.Shared;
+            _source = DefaultArrayPoolSource<T>.Create(customPool);
             _clearOnFree = ShouldClear<T>(clearMode);
 
             if (capacity == 0)
@@ -163,7 +206,43 @@ namespace Collections.Pooled
             }
             else
             {
-                _items = _pool.Rent(capacity);
+                _items = _source.Rent(capacity);
+            }
+
+            if (sizeToCapacity)
+            {
+                _size = capacity;
+                if (clearMode != ClearMode.Never)
+                {
+                    Array.Clear(_items, 0, _size);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Constructs a List with a given initial capacity. The list is
+        /// initially empty, but will have room for the given number of elements
+        /// before any reallocations are required.
+        /// </summary>
+        /// <param name="capacity"></param>
+        /// <param name="clearMode"></param>
+        /// <param name="customPool"></param>
+        /// <param name="sizeToCapacity"></param>
+        public PooledList(int capacity, ClearMode clearMode, IArrayPoolSource<T> customPool, bool sizeToCapacity)
+        {
+             if (capacity < 0)
+                ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.capacity, ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
+             
+            _source = customPool;
+            _clearOnFree = ShouldClear<T>(clearMode);
+
+            if (capacity == 0)
+            {
+                _items = Array.Empty<T>();
+            }
+            else
+            {
+                _items = _source.Rent(capacity);
             }
 
             if (sizeToCapacity)
@@ -232,7 +311,7 @@ namespace Collections.Pooled
         /// </summary>
         public PooledList(ReadOnlySpan<T> span, ClearMode clearMode, ArrayPool<T> customPool)
         {
-            _pool = customPool ?? ArrayPool<T>.Shared;
+            _source = DefaultArrayPoolSource<T>.Create(customPool);
             _clearOnFree = ShouldClear<T>(clearMode);
 
             int count = span.Length;
@@ -242,7 +321,7 @@ namespace Collections.Pooled
             }
             else
             {
-                _items = _pool.Rent(count);
+                _items = _source.Rent(count);
                 span.CopyTo(_items);
                 _size = count;
             }
@@ -276,7 +355,7 @@ namespace Collections.Pooled
         /// </summary>
         public PooledList(IEnumerable<T> collection, ClearMode clearMode, ArrayPool<T> customPool)
         {
-            _pool = customPool ?? ArrayPool<T>.Shared;
+            _source = DefaultArrayPoolSource<T>.Create(customPool);
             _clearOnFree = ShouldClear<T>(clearMode);
 
             if (collection is null)
@@ -291,7 +370,7 @@ namespace Collections.Pooled
                 }
                 else
                 {
-                    _items = _pool.Rent(count);
+                    _items = _source.Rent(count);
                     c.CopyTo(_items, 0);
                     _size = count;
                 }
@@ -353,7 +432,7 @@ namespace Collections.Pooled
                 {
                     if (value > 0)
                     {
-                        var newItems = _pool.Rent(value);
+                        var newItems = _source.Rent(value);
                         if (_size > 0)
                         {
                             Array.Copy(_items, 0, newItems, 0, _size);
@@ -1919,7 +1998,7 @@ namespace Collections.Pooled
             try
             {
                 // Clear the elements so that the gc can reclaim the references.
-                _pool.Return(_items, clearArray: _clearOnFree);
+                _source.Return(_items, clearArray: _clearOnFree);
             }
             catch (ArgumentException)
             {
@@ -1956,7 +2035,7 @@ namespace Collections.Pooled
             // We can't serialize array pools, so deserialized PooledLists will
             // have to use the shared pool, even if they were using a custom pool
             // before serialization.
-            _pool = ArrayPool<T>.Shared;
+            _source = DefaultArrayPoolSource<T>.Create();
         }
 
         /// <summary>

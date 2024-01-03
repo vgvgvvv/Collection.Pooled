@@ -83,8 +83,8 @@ namespace Collections.Pooled
         private const string s_comparerName = "Comparer"; // Do not rename (binary serialization)
         private const string s_versionName = "Version"; // Do not rename (binary serialization)
 
-        private static readonly ArrayPool<int> s_bucketPool = ArrayPool<int>.Shared;
-        private static readonly ArrayPool<Slot> s_slotPool = ArrayPool<Slot>.Shared;
+        private static readonly IArrayPoolSource<int> s_bucketPool = DefaultArrayPoolSource<int>.Shared;
+        private static readonly IArrayPoolSource<Slot> s_slotPool = DefaultArrayPoolSource<Slot>.Shared;
 
         // WARNING:
         // It's important that the number of buckets be prime, and these arrays could exceed

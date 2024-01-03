@@ -41,7 +41,7 @@ namespace Collections.Pooled
     public class PooledStack<T> : IEnumerable<T>, ICollection, IReadOnlyCollection<T>, IDisposable, IDeserializationCallback
     {
         [NonSerialized]
-        private ArrayPool<T> _pool;
+        private IArrayPoolSource<T> _pool;
 #pragma warning disable IDE0044
         [NonSerialized]
         private object? _syncRoot;
@@ -76,7 +76,7 @@ namespace Collections.Pooled
         /// </summary>
         public PooledStack(ClearMode clearMode, ArrayPool<T> customPool)
         {
-            _pool = customPool ?? ArrayPool<T>.Shared;
+            _pool = DefaultArrayPoolSource<T>.Create(customPool);
             _array = Array.Empty<T>();
             _clearOnFree = ShouldClear<T>(clearMode);
         }
@@ -110,7 +110,7 @@ namespace Collections.Pooled
                 ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.capacity,
                     ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
             }
-            _pool = customPool ?? ArrayPool<T>.Shared;
+            _pool = DefaultArrayPoolSource<T>.Create(customPool);
             _array = _pool.Rent(capacity);
             _clearOnFree = ShouldClear<T>(clearMode);
         }
@@ -139,7 +139,7 @@ namespace Collections.Pooled
         /// </summary>
         public PooledStack(IEnumerable<T> enumerable, ClearMode clearMode, ArrayPool<T> customPool)
         {
-            _pool = customPool ?? ArrayPool<T>.Shared;
+            _pool = DefaultArrayPoolSource<T>.Create(customPool);
             _clearOnFree = ShouldClear<T>(clearMode);
 
             switch (enumerable)
@@ -221,7 +221,7 @@ namespace Collections.Pooled
         /// </summary>
         public PooledStack(ReadOnlySpan<T> span, ClearMode clearMode, ArrayPool<T> customPool)
         {
-            _pool = customPool ?? ArrayPool<T>.Shared;
+            _pool = DefaultArrayPoolSource<T>.Create(customPool);
             _clearOnFree = ShouldClear<T>(clearMode);
             _array = _pool.Rent(span.Length);
             span.CopyTo(_array);
@@ -658,7 +658,7 @@ namespace Collections.Pooled
             // We can't serialize array pools, so deserialized PooledStacks will
             // have to use the shared pool, even if they were using a custom pool
             // before serialization.
-            _pool = ArrayPool<T>.Shared;
+            _pool = DefaultArrayPoolSource<T>.Shared;
         }
 
         /// <summary>

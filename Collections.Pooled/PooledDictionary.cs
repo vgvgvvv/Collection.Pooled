@@ -73,8 +73,8 @@ namespace Collections.Pooled
         private const string s_clearValueName = "CV"; // Do not rename (binary serialization)
         private const int s_startOfFreeList = -3;
 
-        private static readonly ArrayPool<int> s_bucketPool = ArrayPool<int>.Shared;
-        private static readonly ArrayPool<Entry> s_entryPool = ArrayPool<Entry>.Shared;
+        private static readonly IArrayPoolSource<int> s_bucketPool = DefaultArrayPoolSource<int>.Shared;
+        private static readonly IArrayPoolSource<Entry> s_entryPool = DefaultArrayPoolSource<Entry>.Shared;
 
         // WARNING:
         // It's important that the number of buckets be prime, and these arrays could exceed
